@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Activity, ArrowDownLeft, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, CircleHelp, Clock3, Code2, Fingerprint, Inbox as InboxIcon, Loader2, LockKeyhole, Plus, Radio, Search, Send, ShieldCheck, Sparkles, Terminal, Trash2, Unplug, X, Zap } from 'lucide-react';
+import { Activity, ArrowDownLeft, ArrowRight, ArrowUpRight, BookOpen, Check, ChevronDown, CircleHelp, Clock3, Code2, Fingerprint, Inbox as InboxIcon, Loader2, LockKeyhole, Moon, Plus, Radio, Search, Send, ShieldCheck, Sparkles, Sun, Terminal, Trash2, Unplug, X, Zap } from 'lucide-react';
 import type { CapturedRequest, CapturedRequestSummary, Inbox, LiveEvent } from '../shared/types';
 import { CopyButton, Method, Modal } from './components';
 import RequestDetail from './RequestDetail';
 import { api, ApiError, bytes, remaining, requestPath, savedInbox, saveInbox, time } from './lib';
+import { useTheme } from './useTheme';
 
 type Dialog = 'docs' | 'privacy' | 'new' | 'clear' | null;
 type Connection = 'connecting' | 'live' | 'reconnecting' | 'expired';
@@ -16,6 +17,7 @@ const TEST_BODY = {
 };
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme();
   const [inbox, setInbox] = useState<Inbox | null>(null);
   const [requests, setRequests] = useState<CapturedRequestSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -213,7 +215,7 @@ export default function App() {
   return <div className="app-shell">
     <header className="site-header"><div className="header-inner">
       <a href="/" className="brand" aria-label="Hook Inspector home"><span className="brand-symbol"><svg width="24" height="24" viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M7 5v13a6 6 0 0 0 12 0v-5m-4 4 4-4 4 4M4 5h6" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" /></svg></span><span>hook<span className="brand-light">inspector</span><span className="brand-period">.</span></span></a>
-      <div className="header-right"><span className="header-tag">Less guessing. More shipping.</span><div className="header-divider" /><button className="docs-link" onClick={() => setDialog('docs')}><BookOpen size={15} /> Quick guide <ArrowUpRight size={14} /></button></div>
+      <div className="header-right"><span className="header-tag">Less guessing. More shipping.</span><div className="header-divider" /><button className="docs-link" onClick={() => setDialog('docs')}><BookOpen size={15} /> Quick guide <ArrowUpRight size={14} /></button><button className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`} title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}>{theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}</button></div>
     </div></header>
 
     <main className="main">
