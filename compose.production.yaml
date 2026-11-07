@@ -1,0 +1,70 @@
+# Standalone HTTPS deployment. Run with -f compose.production.yaml, not as an override.
+services:
+  app:
+    build: .
+    init: true
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://${DOMAIN:?Set DOMAIN to your public hostname}
+      COOKIE_SECURE: "true"
+      TRUST_PROXY_HOPS: "1"
+      DEFAULT_TTL_HOURS: ${DEFAULT_TTL_HOURS:-24}
+      MAX_BODY_BYTES: ${MAX_BODY_BYTES:-1048576}
+      MAX_REQUESTS_PER_INBOX: ${MAX_REQUESTS_PER_INBOX:-100}
+      MAX_INBOXES: ${MAX_INBOXES:-1000}
+      MAX_STORAGE_BYTES: ${MAX_STORAGE_BYTES:-268435456}
+      MAX_CONCURRENT_UPLOADS: ${MAX_CONCURRENT_UPLOADS:-32}
+      CREATE_RATE_LIMIT: ${CREATE_RATE_LIMIT:-10}
+      WEBHOOK_RATE_LIMIT: ${WEBHOOK_RATE_LIMIT:-120}
+    # No host port: only the reverse proxy can reach the application.
+    volumes:
+      - inbox-data:/app/data
+    networks: [app-internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 100
+    stop_grace_period: 15s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN to your public hostname}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [default, app-internal]
+    mem_limit: 256m
+    pids_limit: 100
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  app-internal:
+    internal: true
+
+volumes:
+  inbox-data:
+  caddy-data:
+  caddy-config:

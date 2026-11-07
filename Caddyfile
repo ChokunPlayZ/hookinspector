@@ -1,0 +1,9 @@
+{$DOMAIN} {
+  header Strict-Transport-Security "max-age=31536000"
+
+  # Keep SSE unbuffered. Do not enable proxy body parsing or decompression.
+  reverse_proxy app:3000 {
+    flush_interval -1
+    header_up X-Forwarded-For {remote_host}
+  }
+}
