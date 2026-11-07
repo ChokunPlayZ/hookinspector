@@ -16,7 +16,8 @@ describe('Webhook Inspector HTTP service', { timeout: 15_000 }, () => {
   const controllers: AbortController[] = [];
 
   async function start(overrides: Partial<Config> = {}) {
-    app = createApp({ ...loadConfig(), databasePath: ':memory:', publicUrl: undefined, cookieSecure: false, ...overrides });
+    // Tests connect directly; deployment proxy settings must not change their trust boundary.
+    app = createApp({ ...loadConfig(), databasePath: ':memory:', publicUrl: undefined, cookieSecure: false, trustProxyHops: 0, ...overrides });
     await new Promise<void>((resolve) => app.server.listen(0, '127.0.0.1', resolve));
     const address = app.server.address();
     assert.ok(address && typeof address !== 'string');
@@ -111,7 +112,7 @@ describe('Webhook Inspector HTTP service', { timeout: 15_000 }, () => {
     const { inbox, cookie } = await create();
     const payload = '{ "event": "order.paid", "number": 42 }\n';
     const response = await fetch(`${inbox.url}/orders?tag=a&tag=b&name=hello%20world`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Custom': 'hello', 'X-Forwarded-For': '203.0.113.90' }, body: payload,
+      method: 'PATCH', headers: { 'Content-Type': 'application/json', 'X-Custom': 'hello', 'X-Forwarded-For': '203.0.113.90', 'X-Forwarded-Proto': 'https' }, body: payload,
     });
     assert.equal(response.status, 200);
     const [summary] = await list(inbox, cookie);
@@ -128,6 +129,25 @@ describe('Webhook Inspector HTTP service', { timeout: 15_000 }, () => {
     assert.equal(request.protocol, 'http');
     assert.ok(request.headers.some(([name, value]) => name.toLowerCase() === 'x-custom' && value === 'hello'));
   });
+
+  for (const [hops, expectedClient] of [[1, '192.0.2.10'], [2, '203.0.113.90']] as const) {
+    it(`uses ${hops} explicitly trusted proxy hops while retaining the socket peer`, async () => {
+      await app.close();
+      await start({ trustProxyHops: hops });
+      const { inbox, cookie } = await create();
+      const forwarded = '198.51.100.99, 203.0.113.90, 192.0.2.10';
+      const response = await fetch(inbox.url, {
+        method: 'POST', headers: { 'X-Forwarded-For': forwarded, 'X-Forwarded-Proto': 'https' }, body: 'proxied',
+      });
+      assert.equal(response.status, 200);
+      const [summary] = await list(inbox, cookie);
+      const request = await detail(inbox, cookie, summary.id);
+      assert.equal(request.clientAddress, expectedClient);
+      assert.equal(request.remoteAddress, '127.0.0.1');
+      assert.equal(request.protocol, 'https');
+      assert.ok(request.headers.some(([name, value]) => name.toLowerCase() === 'x-forwarded-for' && value === forwarded));
+    });
+  }
 
   it('preserves duplicate header casing and HTTP trailers', async () => {
     const { inbox, cookie } = await create();
